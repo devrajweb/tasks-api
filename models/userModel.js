@@ -1,21 +1,34 @@
-const db = require('../config/database');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 const bcrypt = require('bcryptjs');
 
-const User = {
-    create: (user, callback) => {
-        bcrypt.hash(user.password, 10, (err, hash) => {
-            if (err) return callback(err);
-            db.query(
-                'INSERT INTO users (username, password) VALUES (?, ?)',
-                [user.username, hash],
-                callback
-            );
-        });
-    },
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
+  },
+  username: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  }
+}, {
+  timestamps: false,
+  tableName: 'users'
+});
 
-    findByUsername: (username, callback) => {
-        db.query('SELECT * FROM users WHERE username = ?', [username], callback);
-    }
-};
+// Hash password before saving
+User.beforeCreate(async (user) => {
+  user.password = await bcrypt.hash(user.password, 10);
+});
 
 module.exports = User;

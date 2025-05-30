@@ -7,7 +7,7 @@ module.exports = {
       {
         username: 'admin',
         password: await bcrypt.hash('admin123', 10),
-        created_at: new Date()
+        created_at: new Date(),
       },
       {
         username: 'user1',

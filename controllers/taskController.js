@@ -1,73 +1,103 @@
-const Task = require('../models/taskModel');
+const  Task  = require('../models/taskModel'); // Ensure this path is correct
+const { Sequelize } = require('sequelize');
 
-exports.getAllTasks = (req, res) => {
-    Task.getAll(req.user.id, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(results);
-    });
+exports.getAllTasks = async (req, res) => {
+    try {
+        const tasks = await Task.findAll({ where: { user_id: req.user.id } });
+        res.json(tasks);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-exports.getTaskById = (req, res) => {
-    Task.getById(req.params.id, req.user.id, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (results.length === 0) return res.status(404).json({ message: 'Task not found' });
-        res.json(results[0]);
-    });
+exports.getTaskById = async (req, res) => {
+    try {
+        const task = await Task.findOne({ where: { id: req.params.id, user_id: req.user.id } });
+        if (!task) {
+            return res.status(404).json({ message: 'Task not found' });
+        }
+        res.json(task);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-exports.createTask = (req, res) => {
+exports.createTask = async (req, res) => {
     const { title, description } = req.body;
 
-     if(!title || !description){
-        return res.status(400).json({ message:'title & description are required!' });
+    if (!title || !description) {
+        return res.status(400).json({ message: 'Title & description are required!' });
     }
+
     const task = {
-        title: req.body.title,
-        description: req.body.description,
-        status: req.body.status || 'pending'
+        title,
+        description,
+        status: req.body.status || 'pending',
+        user_id: req.user.id
     };
-    
-    Task.create(task, req.user.id, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.status(201).json({ id: results.insertId, ...task });
-    });
+
+    try {
+        const newTask = await Task.create(task);
+        res.status(201).json(newTask);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-exports.updateTask = (req, res) => {
+exports.updateTask = async (req, res) => {
     const { title, description } = req.body;
-    if(!title || !description){
-        return res.status(400).json({ message:'title & description are required!' });
+
+    if (!title || !description) {
+        return res.status(400).json({ message: 'Title & description are required!' });
     }
+
     const task = {
-        title: req.body.title,
-        description: req.body.description,
+        title,
+        description,
         status: req.body.status
     };
-    
-    Task.update(req.params.id, task, req.user.id, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (results.affectedRows === 0) return res.status(404).json({ message: 'Task not found' });
+
+    try {
+        const [updated] = await Task.update(task, { where: { id: req.params.id, user_id: req.user.id } });
+        if (!updated) {
+            return res.status(404).json({ message: 'Task not found' });
+        }
         res.json({ message: 'Task updated successfully' });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-exports.deleteTask = (req, res) => {
-    Task.delete(req.params.id, req.user.id, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (results.affectedRows === 0) return res.status(404).json({ message: 'Task not found' });
+exports.deleteTask = async (req, res) => {
+    try {
+        const deleted = await Task.destroy({ where: { id: req.params.id, user_id: req.user.id } });
+        if (!deleted) {
+            return res.status(404).json({ message: 'Task not found' });
+        }
         res.json({ message: 'Task deleted successfully' });
-    });
-
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-exports.searchTasks = (req, res) => {
+exports.searchTasks = async (req, res) => {
     const query = req.query.q;
     if (!query) {
         return res.status(400).json({ message: 'Search query is required' });
     }
 
-    Task.search(req.user.id, query, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(results);
-    });
+    try {
+        const tasks = await Task.findAll({
+            where: {
+                user_id: req.user.id,
+                [Op.or]: [
+                    { title: { [Op.like]: `%${query}%` } },
+                    { description: { [Op.like]: `%${query}%` } }
+                ]
+            }
+        });
+        res.json(tasks);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
